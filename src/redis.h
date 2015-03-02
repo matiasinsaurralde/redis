@@ -1430,6 +1430,7 @@ void dbsizeCommand(redisClient *c);
 void lastsaveCommand(redisClient *c);
 void saveCommand(redisClient *c);
 void bgsaveCommand(redisClient *c);
+void dailysnapshotCommand(redisClient *c);
 void bgrewriteaofCommand(redisClient *c);
 void shutdownCommand(redisClient *c);
 void moveCommand(redisClient *c);

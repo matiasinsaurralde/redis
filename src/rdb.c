@@ -1695,3 +1695,20 @@ void bgsaveCommand(redisClient *c) {
         addReply(c,shared.err);
     }
 }
+
+void dailysnapshotCommand(redisClient *c) {
+
+  time_t current_time = time(NULL);
+  char ts_fname[100];
+
+  strftime( ts_fname, sizeof( ts_fname ), "%d_%m_%Y.rdb", localtime(&current_time) );
+
+  redisLog(REDIS_NOTICE,"Snapshot diario: %s", ts_fname );
+
+  if( rdbSave( ts_fname ) == REDIS_OK ) {
+    flushallCommand(c);
+    redisLog(REDIS_NOTICE,"Flush a todas las claves!");
+  };
+
+  addReplyStatus(c, "Guardando snapshot diario :)");
+}
