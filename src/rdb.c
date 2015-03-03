@@ -1696,6 +1696,10 @@ void bgsaveCommand(redisClient *c) {
     }
 }
 
+void storeReports(redisClient *c) {
+  redisLog(REDIS_NOTICE,"Generar y almacenar reportes");
+}
+
 void dailysnapshotCommand(redisClient *c) {
 
   time_t current_time = time(NULL);
@@ -1705,10 +1709,36 @@ void dailysnapshotCommand(redisClient *c) {
 
   redisLog(REDIS_NOTICE,"Snapshot diario: %s", ts_fname );
 
-  if( rdbSave( ts_fname ) == REDIS_OK ) {
+  int i;
+  for( i = 1; i<5; i++ ) {
+    /*
+      actual (del dia): 0
+      ayer: 1
+      anteayer: 2
+      semana: 3
+      mes: 4
+     */
+    if( selectDb(c, i ) != REDIS_ERR) {
+      redisLog(REDIS_NOTICE, "seleccionar y borrar db %d", i );
+      flushdbCommand(c);
+    };
+  };
+
+  if (selectDb(c, 0) != REDIS_ERR) {
+    redisLog(REDIS_NOTICE, "seleccionar y dumpear db %d (principal)", 0);
+    if( rdbSave( ts_fname ) == REDIS_OK ) {
+      redisLog(REDIS_NOTICE, "dump de %s, satisfactorio, limpiar todo.", ts_fname);
+      storeReports(c);
+      flushdbCommand(c);
+    };
+  }
+
+  // flushdbCommand
+
+  /*if( rdbSave( ts_fname ) == REDIS_OK ) {
     flushallCommand(c);
     redisLog(REDIS_NOTICE,"Flush a todas las claves!");
-  };
+  };*/
 
   addReplyStatus(c, "Guardando snapshot diario :)");
 }
