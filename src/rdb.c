@@ -40,6 +40,9 @@
 #include <arpa/inet.h>
 #include <sys/stat.h>
 
+#include <string.h>
+#include <dirent.h>
+
 #define RDB_LOAD_NONE   0
 #define RDB_LOAD_ENC    (1<<0)
 #define RDB_LOAD_PLAIN  (1<<1)
@@ -1698,6 +1701,25 @@ void bgsaveCommand(redisClient *c) {
 
 void storeReports(redisClient *c) {
   redisLog(REDIS_NOTICE,"Generar y almacenar reportes");
+  if( rdbLoad("02_03_2015.rdb") == REDIS_ERR ) {
+    redisLog(REDIS_NOTICE,"Error al cargar test rdb");
+  } else {
+    redisLog(REDIS_NOTICE,"Carga de test rdb satisfactoria");
+  };
+  // rdbLoad(char *filename)
+  DIR *rdbDir;
+  struct dirent *dir;
+  rdbDir = opendir(".");
+  if( rdbDir ) {
+    while( ( dir = readdir( rdbDir ) ) != NULL ) {
+      size_t len = strlen(dir->d_name);
+      size_t spn = strcspn(dir->d_name, ".rdb");
+      if( len == 14 && spn == 10 ) {
+       // printf("%s\n", dir->d_name );
+       redisLog(REDIS_NOTICE, "Found rdb from archive: %s", dir->d_name);
+      };
+    };
+  };
 }
 
 void dailysnapshotCommand(redisClient *c) {
@@ -1728,8 +1750,9 @@ void dailysnapshotCommand(redisClient *c) {
     redisLog(REDIS_NOTICE, "seleccionar y dumpear db %d (principal)", 0);
     if( rdbSave( ts_fname ) == REDIS_OK ) {
       redisLog(REDIS_NOTICE, "dump de %s, satisfactorio, limpiar todo.", ts_fname);
-      storeReports(c);
+      // storeReports(c);
       flushdbCommand(c);
+      storeReports(c);
     };
   }
 
