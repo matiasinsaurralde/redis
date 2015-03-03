@@ -1699,8 +1699,89 @@ void bgsaveCommand(redisClient *c) {
     }
 }
 
+// custom!
+
+time_t get_mtime(char *prefix, char *path) {
+  struct stat statbuf;
+  char completePath[100];
+  sprintf(completePath, "%s%s", prefix, path);
+  if (stat(completePath, &statbuf) == -1) {
+    perror(path);
+    exit(1);
+  };
+  return statbuf.st_ctime;
+};
+
+int ctimesort(const struct dirent **d1, const struct dirent **d2) {
+  char *prefix = "rdbs/";
+  time_t f_time = (int)get_mtime( prefix, (*d1)->d_name );
+  time_t f_time2 = (int)get_mtime( prefix, (*d2)->d_name );
+  return f_time2-f_time;
+};
+
 void storeReports(redisClient *c) {
   redisLog(REDIS_NOTICE,"Generar y almacenar reportes");
+
+  sds archiveFiles[100];
+
+  struct dirent **namelist;
+  int n;
+  int valid_n = 0;
+  n = scandir( "rdbs/", &namelist, NULL, ctimesort);
+  if (n < 0)
+    perror("scandir");
+  else {
+    while (n--) {
+      size_t len = strlen( namelist[n]->d_name );
+      size_t spn = strcspn( namelist[n]->d_name, ".rdb");
+      if( len == 14 && spn == 10 ) {
+        // printf("%s\n", namelist[n]->d_name);
+        char* fname = namelist[n]->d_name;
+        fname[ sizeof(fname)+10 ] = '\0';
+        sds fnameStr = sdsnew(fname);
+        archiveFiles[valid_n] = fnameStr;
+        redisLog(REDIS_NOTICE,"Archivo: %s",fname);
+        //strcpy( &archiveFiles[valid_n], fname );
+        // strncpy( archiveFiles[valid_n], fname, sizeof(fname)+20 );
+        valid_n++;
+      };
+      free(namelist[n]);
+    };
+    free(namelist);
+  };
+
+  int i;
+
+  for( i = 0; i < valid_n; i++ ) {
+    sds str = sdsempty();
+    str = sdscat( str, "rdbs/");
+    str = sdscat( str, archiveFiles[i] );
+
+    if( i == 0 ) { // ayer
+      redisLog(REDIS_NOTICE, "registro ayer");
+    };
+    if( i == 1 ) { // anteayer
+      redisLog(REDIS_NOTICE,"registro anteayer");
+    };
+    if( i <= 7 ) { // semana
+      redisLog(REDIS_NOTICE,"registro semana");
+    };
+    if( i <= 30 ) { // mes
+      redisLog(REDIS_NOTICE,"registro mes");
+    };
+
+    redisLog(REDIS_NOTICE, "iter %d", i );
+    redisLog(REDIS_NOTICE, "file: %s", str);
+
+    if( rdbLoad(str) == REDIS_ERR ) {
+      redisLog(REDIS_NOTICE,"Error al cargar %s", str);
+    } else {
+      redisLog(REDIS_NOTICE,"Carga de %s", str);
+    };
+
+  };
+
+/*
   if( rdbLoad("02_03_2015.rdb") == REDIS_ERR ) {
     redisLog(REDIS_NOTICE,"Error al cargar test rdb");
   } else {
@@ -1720,6 +1801,7 @@ void storeReports(redisClient *c) {
       };
     };
   };
+*/
 }
 
 void dailysnapshotCommand(redisClient *c) {
